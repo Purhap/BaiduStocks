@@ -9,22 +9,25 @@ class StocksSpider(scrapy.Spider):
     start_urls = ['http://quote.eastmoney.com/stocklist.html']
 
     def parse(self, response):
-    	for href in response.css('a::attr(href)').extract():
-    		try:
-	    		stock = re.findall(r"[s][hz]\d{6}", href)[0]
-	    		stockURL = 'https://gupiao.baidu.com/stock/'
-	    		url = stockURL + stock + '.html'
-	    		yield scrapy.Request(url, callback=self.parse_stock)
-    		except:
-    			continue
+        for href in response.css('a::attr(href)').extract():
+            try:
+                stock = re.findall(r"[s][hz]\d{6}", href)[0]
+                stockURL = 'https://gupiao.baidu.com/stock/'
+                url = stockURL + stock + '.html'
+                yield scrapy.Request(url, callback=self.parse_stock)
+            except:
+                continue
 
     def parse_stock(self, response):
-    	infoDict = {}
-    	stockInfo = response.css('.stock-bets')
-    	name = stockInfo.css('.bets-name').extract()[0]
-    	keyList = stockInfo.css('dt').extract()
-    	valueList = stockInfo.css('dd').extract()
-    	for i in range(len(keyList)):
+        infoDict = {}
+        stockInfo = response.css('.stock-bets')
+        name = stockInfo.css('.bets-name').extract()[0]
+        datestr = stockInfo.css('.f-up').extract()[0]
+        datestr = re.findall(r'\d{4}-\d{1,2}-\d{1,2}', datestr)[0]
+        keyList = stockInfo.css('dt').extract()
+        valueList = stockInfo.css('dd').extract()
+
+        for i in range(len(keyList)):
             key = re.findall(r'>.*</dt>', keyList[i])[0][1:-5]
             try:
                 val = re.findall(r'\d+\.?.*</dd>', valueList[i])[0][0:-5]
@@ -33,12 +36,10 @@ class StocksSpider(scrapy.Spider):
             infoDict[key] = val
 
 
-    	infoDict.update(
-    		{'股票名称': re.findall('\s.*\(', name)[0].split()[0],
-            'code': re.findall('\>.*\<', name)[0][1:-1]})
-    	yield infoDict
+        infoDict.update(
+            {'股票名称': re.findall('\s.*\(', name)[0].split()[0],
+            'code': re.findall('\>.*\<', name)[0][1:-1],
+            '日期': datestr})
+        yield infoDict
 
 
-
-
-     
