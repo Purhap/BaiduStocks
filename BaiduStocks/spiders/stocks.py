@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import re
-
+import pymysql
 
 
 class StocksSpider(scrapy.Spider):
@@ -9,6 +9,24 @@ class StocksSpider(scrapy.Spider):
     start_urls = ['http://quote.eastmoney.com/stocklist.html']
 
     def parse(self, response):
+        if (False): # stocks info table
+            self.con = pymysql.Connect(host='127.0.0.1', user='root', passwd='123456', database='Stocks', charset='utf8')
+            self.cu = self.con.cursor()
+            tableName = 'stockInfo'
+            sql =  """CREATE TABLE IF NOT EXISTS {}( Code VARCHAR(10) PRIMARY KEY, 股票名称 VARCHAR(10), 交易所 VARCHAR(10), 板块1 VARCHAR(10), 板块2 VARCHAR(10), 板块3 VARCHAR(10), 题材1 VARCHAR(10), 题材2 VARCHAR(10), 题材3 VARCHAR(10))""".format(tableName)
+            self.cu.execute(sql)
+            self.con.commit()
+            
+            for href in response.css('a::attr(href)').extract():
+                try:
+                    stock = re.findall(r"[s][hz]\d{6}", href)[0]                                
+                    sql = """INSERT INTO {}(Code) VALUES ('%s')""".format(tableName) %(stock)
+                    self.cu.execute(sql)
+                    self.con.commit()              
+                except:
+                    continue
+            self.con.close()
+
         for href in response.css('a::attr(href)').extract():
             try:
                 stock = re.findall(r"[s][hz]\d{6}", href)[0]
@@ -32,14 +50,14 @@ class StocksSpider(scrapy.Spider):
             try:
                 val = re.findall(r'\d+\.?.*</dd>', valueList[i])[0][0:-5]
             except:
-                val = '---'
+                val = '0.0'
             infoDict[key] = val
 
 
         infoDict.update(
             {'股票名称': re.findall('\s.*\(', name)[0].split()[0],
             'code': re.findall('\>.*\<', name)[0][1:-1],
-            '日期': datestr})
+            '日期': datestr})        
         yield infoDict
 
 
